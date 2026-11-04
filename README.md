@@ -92,7 +92,7 @@ Scaling parameters were learned using training data only.
 
 ## 3. GitHub Repository Link
 
-**Repository URL:** To be updated after publishing the repository.
+**Repository URL:** https://github.com/2026aj05145-pixel/dry-bean-classification-ml
 
 The repository contains the application source code, trained models, requirements, test dataset and documentation.
 
@@ -167,7 +167,7 @@ Achieved 91.55% accuracy and 0.9811 AUC. It performed competitively with Logisti
 
 **Gaussian Naive Bayes**
 
-Achieved 76.30% accuracy and the lowest MCC of 0.7143. BARBUNYA and SEKER were particularly challenging classes, with F1-scores of 0.5483 and 0.6828 respectively. Strong correlations between input features may affect its conditional independence assumption.
+Achieved 76.30% accuracy and the lowest MCC of 0.7143. BARBUNYA and SEKER were particularly challenging classes, with F1-scores of 0.5483 and 0.6828 respectively. Strong correlations between input features may be one possible explanation for weaker performance because Gaussian Naive Bayes assumes conditional feature independence; this dataset alone does not establish the cause.
 
 **Support Vector Machine**
 
@@ -209,20 +209,20 @@ The uploaded dataset is used for evaluation and prediction. No model retraining 
 
 A labelled CSV containing the 16 required input features and the target column `Class` is required for evaluation metrics and confusion matrices.
 
-**Live Streamlit Application:** To be updated after deployment.
+**Live Streamlit Application:** https://dry-bean-classification-ml-gujgsxwd8wwuhncnetvrsg.streamlit.app/
 
 ---
 
 ## 6. Project Structure
 
 ```text
-DryBean_Classification/
+dry-bean-classification-ml/
 │
 ├── app.py
 ├── requirements.txt
 ├── README.md
 ├── test_data.csv
-├── model_training.ipynb
+├── 2026AJ05145.ipynb
 │
 └── model/
     ├── logistic_regression.joblib

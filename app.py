@@ -31,7 +31,7 @@ st.markdown("""<style>
 .note-panel {border-left:4px solid #18a69e;padding:12px 16px;background:rgba(22,163,157,.07);border-radius:0 12px 12px 0;margin:10px 0 18px}
 @media(max-width:720px){.hero{padding:24px 20px}.hero h1{font-size:1.9rem}}
 </style>""", unsafe_allow_html=True)
-st.markdown("""<div class="hero"><div class="eyebrow">BITS PILANI · M.TECH AI &amp; ML · ASSIGNMENT 2 - Viswesvaran J</div>
+st.markdown("""<div class="hero"><div class="eyebrow">BITS PILANI · M.TECH AI &amp; ML · ASSIGNMENT 2 2026AJ05145</div>
 <h1>🌱 Dry Bean Intelligence Studio</h1>
 <p>Explore your dataset. Benchmark five trained classifiers. Investigate every prediction — in one interactive workspace.</p>
 <span class="pill">● Live model evaluation</span><span class="pill">5 pretrained classifiers</span><span class="pill">Zero retraining </span></div>""", unsafe_allow_html=True)
@@ -225,6 +225,70 @@ except Exception as exc:
     st.stop()
 comparison = pd.DataFrame(results).T[METRIC_COLUMNS]
 
+# Observations are derived from the active labelled test set, not hard-coded
+# benchmark scores. Interpretations are descriptive, not causal claims.
+def performance_observations(scores: pd.DataFrame, names: list[str]) -> list[str]:
+    ordered = scores.loc[names].sort_values("Accuracy", ascending=False)
+    best, worst = ordered.index[0], ordered.index[-1]
+    gap = (ordered.iloc[0]["Accuracy"] - ordered.iloc[-1]["Accuracy"]) * 100
+    insights = [
+        f"**{best}** leads on accuracy ({ordered.iloc[0]['Accuracy']:.2%}); "
+        f"**{worst}** has the lowest accuracy ({ordered.iloc[-1]['Accuracy']:.2%}). "
+        f"The difference is **{gap:.2f} percentage points**."
+    ]
+    if len(ordered) > 1:
+        runner = ordered.index[1]
+        margin = (ordered.iloc[0]["Accuracy"] - ordered.iloc[1]["Accuracy"]) * 100
+        insights.append(
+            f"**{runner}** is the closest competitor by accuracy, trailing "
+            f"**{best}** by **{margin:.2f} percentage points**."
+        )
+    f1_best = scores.loc[names, "F1 Score"].idxmax()
+    mcc_best = scores.loc[names, "MCC"].idxmax()
+    if f1_best == best and mcc_best == best:
+        insights.append(
+            f"**{best}** also leads on weighted F1 and MCC, supporting its "
+            "overall ranking across these measures."
+        )
+    else:
+        insights.append(
+            f"Metric leaders differ: weighted F1 is highest for **{f1_best}**, "
+            f"while MCC is highest for **{mcc_best}**. "
+            "Consider the metric that best matches the evaluation goal."
+        )
+    if scores.loc[names, "AUC"].isna().all():
+        insights.append(
+            "**AUC is unavailable** because this test dataset does not contain "
+            "all seven trained classes; the other metrics remain valid."
+        )
+    return insights
+
+
+def class_error_observations(actual: np.ndarray, predicted: np.ndarray) -> list[str]:
+    cm = confusion_matrix(actual, predicted, labels=CLASS_NAMES)
+    support = cm.sum(axis=1)
+    mistakes = support - np.diag(cm)
+    present = np.flatnonzero(support > 0)
+    if not len(present):
+        return ["No labelled observations available for class-level analysis."]
+    worst_index = max(present, key=lambda i: (mistakes[i] / support[i], mistakes[i]))
+    notes = [
+        f"**{CLASS_NAMES[worst_index]}** has the highest observed error rate "
+        f"({mistakes[worst_index]} of {support[worst_index]} samples; "
+        f"{mistakes[worst_index] / support[worst_index]:.1%})."
+    ]
+    off_diagonal = cm.copy()
+    np.fill_diagonal(off_diagonal, 0)
+    if off_diagonal.max() > 0:
+        i, j = np.unravel_index(off_diagonal.argmax(), off_diagonal.shape)
+        notes.append(
+            f"Most frequent confusion: **{CLASS_NAMES[i]} → {CLASS_NAMES[j]}** "
+            f"({off_diagonal[i, j]} observations)."
+        )
+    else:
+        notes.append("No misclassifications were observed in this test set.")
+    return notes
+
 st.markdown('<div class="section-kicker">01 / At a glance</div><div class="section-title">Your evaluation snapshot</div>', unsafe_allow_html=True)
 leader = comparison["Accuracy"].idxmax()
 leader_score = comparison.loc[leader, "Accuracy"]
@@ -300,6 +364,11 @@ with tab_compare:
             if other:
                 st.bar_chart(subset[other])
         st.download_button("⬇️ Download comparison CSV",subset.to_csv().encode(),"dry_bean_model_comparison.csv","text/csv")
+    st.markdown("#### 💡 Model performance observations")
+    st.caption("Automatically generated from the active test dataset; rankings change when you upload a new valid CSV.")
+    for observation in performance_observations(comparison, chosen if len(chosen) >= 2 else list(models)):
+        st.markdown("- " + observation)
+    st.info("These are observations from this test set, not proof that a model will generalize better or that a particular algorithm assumption caused the result.")
     st.caption("Metrics use weighted multiclass averages. AUC is weighted one-vs-rest; it is N/A when the test data does not contain all trained classes.")
 
 with tab_detail:
@@ -329,6 +398,15 @@ with tab_detail:
         report=classification_report(actual,pred,labels=CLASS_NAMES,target_names=CLASS_NAMES,
             output_dict=True,zero_division=0)
         st.dataframe(pd.DataFrame(report).T.style.format("{:.3f}"),width="stretch")
+    st.markdown(f"#### 💡 Performance observations · {selected}")
+    rank = comparison["Accuracy"].rank(ascending=False, method="min").loc[selected]
+    st.markdown(
+        f"**Accuracy:** {vals['Accuracy']:.2%} (rank {int(rank)} of {len(models)}). "
+        f"**Weighted F1:** {vals['F1 Score']:.3f}. **MCC:** {vals['MCC']:.3f}."
+    )
+    for observation in class_error_observations(actual, pred):
+        st.markdown("- " + observation)
+    st.caption("Class-specific findings describe the active labelled dataset; they do not establish the causes of model errors.")
     st.caption(f"Measured inference time (predict + predict_proba): {inference_times[selected]:.4f}s on first uncached evaluation; not a stable benchmark.")
 
 with tab_inspect:
